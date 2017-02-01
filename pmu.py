@@ -94,7 +94,7 @@ class Service(socketserver.BaseRequestHandler):
             try:
                 self.request.send(send_data)
             except:
-                continue
+                break
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
