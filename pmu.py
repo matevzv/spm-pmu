@@ -122,7 +122,8 @@ class Pmu():
         Thread(target = server.serve_forever, args=[]).start()
 
     def send_data(self, phasors=[], analog=[], digital=[], freq=0, dfreq=0,
-                        stat=('ok', True, 'timestamp', False, False, False, 0, '<10', 0), soc=None, frasec=None):
+                stat=('ok', True, 'timestamp', False, False, False, 0, '<10', 0),
+                soc=None, frasec=None):
 
         data_frame = DataFrame(self.pmu_id, stat, phasors, freq, dfreq, analog, digital,
                             self.data_format, self.num_pmu)
