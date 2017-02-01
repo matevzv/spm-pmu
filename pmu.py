@@ -1,8 +1,7 @@
 import socketserver
 
-from time import sleep
+from queue import Queue
 from threading import Thread
-from multiprocessing import Queue
 from synchrophasor.frame import *
 from datetime import datetime
 
@@ -93,7 +92,7 @@ class Service(socketserver.BaseRequestHandler):
             else:
                 continue
             try:
-                self.request.sendall(send_data)
+                self.request.send(send_data)
             except:
                 continue
 
