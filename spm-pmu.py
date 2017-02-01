@@ -2,7 +2,7 @@
 
 import socketserver
 import serial
-import sys
+import os
 import io
 
 from time import sleep
@@ -74,7 +74,7 @@ while True:
 
     except KeyboardInterrupt:
         print('Interrupted')
-        sys.exit()
+        os._exit(0)
     except:
         print("Serial data/send error!")
         continue

@@ -71,7 +71,10 @@ class Service(socketserver.BaseRequestHandler):
             if len(data) == 0:
                 self.queue.put('exit')
                 break
-            self.pmu_handler(data)
+            try:
+                self.pmu_handler(data)
+            except:
+                continue
 
         t.join()
         print("Client exited")
@@ -83,13 +86,16 @@ class Service(socketserver.BaseRequestHandler):
                 if send_data == 'exit':
                     break
                 elif isinstance(send_data, list) and send_data[0] == 'measurement':
-                    if self.sending_measurements_enabled == False:
-                        continue
-                    else:
+                    if self.sending_measurements_enabled == True:
                         send_data = send_data[1]
+                    else:
+                        continue
             else:
                 continue
-            self.request.sendall(send_data)
+            try:
+                self.request.sendall(send_data)
+            except:
+                continue
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
