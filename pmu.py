@@ -10,52 +10,45 @@ class Service(socketserver.BaseRequestHandler):
     sending_measurements_enabled = False
     header = None
     cfg2 = None
+    socket_open = True
 
     def __init__(self, request, client_address, server):
         self.queue = server.queue
         self.header = server.header
         self.cfg2 = server.cfg2
-        self.cfg2.set_id_code(server.pmu_id)
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
+    def get_time(self):
+        dt = datetime.now()
+        return [int(dt.timestamp()), dt.microsecond]
+
     def pmu_handler(self, received_data):
-
         command = None
-        response = None
+        response = b''
 
-        if len(received_data) > 0:
-            received_message = CommonFrame.convert2frame(received_data)
-            command = received_message.get_command()
-            print(command)
+        received_message = CommonFrame.convert2frame(received_data)
+        command = received_message.get_command()
+        print("Client " + str(self.client_address) + " command " + command)
 
-            if command == 'start':
-                self.queue.put(None)
-                self.sending_measurements_enabled = True
+        if command == 'start':
+            self.sending_measurements_enabled = True
 
-            elif command == 'stop':
-                self.queue.put(None)
-                self.sending_measurements_enabled = False
+        elif command == 'stop':
+            self.sending_measurements_enabled = False
 
-            elif command == 'header':
-                dt = datetime.now()
-                self.header.set_time(int(dt.timestamp()), dt.microsecond)
-                response = self.header.convert2bytes()
-                self.queue.put(response)
+        elif command == 'header':
+            time = self.get_time()
+            self.header.set_time(time[0], time[1])
+            response = self.header.convert2bytes()
 
-            elif command == 'cfg1':
-                self.queue.put(None)
+        elif command == 'cfg2':
+            time = self.get_time()
+            self.cfg2.set_time(time[0], time[1])
+            response = self.cfg2.convert2bytes()
 
-            elif command == 'cfg2':
-                dt = datetime.now()
-                self.cfg2.set_time(int(dt.timestamp()), dt.microsecond)
-                response = self.cfg2.convert2bytes()
-                self.queue.put(response)
-
-            elif command == 'cfg3':
-                self.queue.put(None)
+        return response
 
     def handle(self):
-        data = 'init'
         print("Client connected with " + str(self.client_address))
 
         t = Thread(target = self.send_data, args=[])
@@ -64,37 +57,29 @@ class Service(socketserver.BaseRequestHandler):
         while True:
             try:
                 data = self.request.recv(1024)
+                if len(data) == 0:
+                    break
             except:
-                self.queue.put('exit')
                 break
-            if len(data) == 0:
-                self.queue.put('exit')
-                break
+
             try:
-                self.pmu_handler(data)
+                byts = self.pmu_handler(data)
+                self.request.sendall(byts)
             except:
                 continue
 
+        self.socket_open = False
         t.join()
-        print("Client exited")
+        print("Client exited with " + str(self.client_address))
 
     def send_data(self):
-        while True:
+        while self.socket_open:
             send_data = self.queue.get()
-            if send_data is not None:
-                if send_data == 'exit':
-                    break
-                elif isinstance(send_data, list) and send_data[0] == 'measurement':
-                    if self.sending_measurements_enabled == True:
-                        send_data = send_data[1]
-                    else:
-                        continue
-            else:
-                continue
-            try:
-                self.request.send(send_data)
-            except:
-                break
+            if self.sending_measurements_enabled == True:
+                try:
+                    self.request.sendall(send_data)
+                except:
+                    continue
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
@@ -112,11 +97,11 @@ class Pmu():
     num_pmu = None
 
     def __init__(self, header, cfg2, ip='', port=4712, pmu_id=1410):
+        print("PMU with ID " + str(pmu_id) + " started on " + ip + ":" + str(port))
         self.pmu_id = pmu_id
         self.num_pmu = cfg2.num_pmu
         self.data_format = cfg2.data_format
         server = ThreadedTCPServer((ip, port), Service, queue=self.queue)
-        server.pmu_id = pmu_id
         server.header = header
         server.cfg2 = cfg2
         Thread(target = server.serve_forever, args=[]).start()
@@ -129,4 +114,4 @@ class Pmu():
                             self.data_format, self.num_pmu)
 
         data_frame.set_time(soc, frasec)
-        self.queue.put(['measurement', data_frame.convert2bytes()])
+        self.queue.put(data_frame.convert2bytes())
