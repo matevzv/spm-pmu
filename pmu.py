@@ -2,6 +2,7 @@ import socketserver
 
 from queue import Queue
 from threading import Thread
+from threading import Lock
 from synchrophasor.frame import *
 from datetime import datetime
 
@@ -51,6 +52,8 @@ class Service(socketserver.BaseRequestHandler):
     def handle(self):
         print("Client connected with " + str(self.client_address))
 
+        lock = Lock()
+
         t = Thread(target = self.send_data, args=[])
         t.start()
 
@@ -64,7 +67,8 @@ class Service(socketserver.BaseRequestHandler):
 
             try:
                 byts = self.pmu_handler(data)
-                self.request.sendall(byts)
+                with lock:
+                    self.request.sendall(byts)
             except:
                 continue
 
@@ -80,6 +84,8 @@ class Service(socketserver.BaseRequestHandler):
                     self.request.sendall(send_data)
                 except:
                     continue
+                finally:
+                    self.queue.task_done()
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True,
@@ -101,6 +107,7 @@ class Pmu():
         self.pmu_id = pmu_id
         self.num_pmu = cfg2.num_pmu
         self.data_format = cfg2.data_format
+        socketserver.TCPServer.allow_reuse_address = True
         server = ThreadedTCPServer((ip, port), Service, queue=self.queue)
         server.header = header
         server.cfg2 = cfg2
@@ -114,4 +121,4 @@ class Pmu():
                             self.data_format, self.num_pmu)
 
         data_frame.set_time(soc, frasec)
-        self.queue.put(data_frame.convert2bytes())
+        self.queue.put_nowait(data_frame.convert2bytes())
