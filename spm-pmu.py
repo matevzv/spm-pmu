@@ -23,13 +23,14 @@ ser = serial.Serial("/dev/ttyMFD1",
 sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
 
 pmu_id = 1410
+nominal_freq = 50
 
 header = HeaderFrame(pmu_id, 'JSI SPM PMU')
 
 cfg2 = ConfigFrame2(pmu_id,  # PMU_ID
                    1000000,  # TIME_BASE
                    1,  # Number of PMUs included in data frame
-                   "Random Station",  # Station name
+                   "JSI SPM PMU",  # Station name
                    1410,  # Data-stream ID(s)
                    (True, True, True, True),  # Data format - POLAR; PH - REAL; AN - REAL; FREQ - REAL;
                    3,  # Number of phasors
@@ -44,7 +45,7 @@ cfg2 = ConfigFrame2(pmu_id,  # PMU_ID
                     (0, 'v')],  # Conversion factor for phasor channels - (float representation, not important)
                    [(1, 'pow')],  # Conversion factor for analog channels
                    [(0x0000, 0xffff)],  # Mask words for digital status words
-                   50,  # Nominal frequency
+                   nominal_freq,  # Nominal frequency
                    1,  # Configuration change count
                    50)  # Rate of phasor data transmission)
 
@@ -63,12 +64,14 @@ while True:
         th1 = float(data[8])
         th2 = float(data[9])
         th3 = float(data[10])
+        f = float(data[12])
 
         pmu.send_data(soc=soc,
                     frasec=frasec,
                     phasors=[(v1, th1),
                             (v2, th2),
                             (v3, th3)],
+                    freq=f,
                     analog=[9.91],
                     digital=[0x0001])
 
