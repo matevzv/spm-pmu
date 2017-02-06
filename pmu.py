@@ -135,5 +135,7 @@ class Pmu():
                             self.data_format, self.num_pmu)
 
         data_frame.set_time(soc, frasec)
+        data_bytes = data_frame.convert2bytes()
+
         for q in self.queues:
-            q.put_nowait(data_frame.convert2bytes())
+            q.put_nowait(data_bytes)
