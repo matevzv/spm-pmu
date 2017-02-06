@@ -5,7 +5,6 @@ import serial
 import os
 import io
 
-from time import sleep
 from datetime import datetime
 from synchrophasor.frame import *
 from pmu import Pmu
