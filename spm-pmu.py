@@ -5,7 +5,6 @@ import serial
 import os
 import io
 
-from time import sleep
 from datetime import datetime
 from synchrophasor.frame import *
 from pmu import Pmu
@@ -64,6 +63,15 @@ while True:
         th2 = float(data[9])
         th3 = float(data[10])
         freq = float(data[12])
+        
+        print(datetime.fromtimestamp(float(str(soc)+'.'+str(frasec))).strftime('%Y-%m-%d %H:%M:%S.%f') + ", " +
+            str(v1) + ", " +
+            str(th1) + ", " +
+            str(v2) + ", " +
+            str(th2) + ", " +
+            str(v3) + ", " +
+            str(th3) + ", " +
+            str(freq))
 
         pmu.send_data(soc=soc,
                     frasec=frasec,
@@ -77,6 +85,7 @@ while True:
     except KeyboardInterrupt:
         print('Interrupted')
         os._exit(0)
-    except:
+    except Exception as e:
+        print(e)
         print("Serial data/send error!")
         continue
