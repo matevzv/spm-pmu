@@ -19,7 +19,7 @@ ser = serial.Serial("/dev/ttyMFD1",
                     stopbits=serial.STOPBITS_ONE,
                     timeout=1)
 
-sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
+sio = io.TextIOWrapper(io.BufferedReader(ser))
 
 pmu_id = 1410
 

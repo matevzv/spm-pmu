@@ -1,4 +1,5 @@
 import socketserver
+import socket
 
 from queue import Queue
 from threading import Thread
@@ -15,7 +16,7 @@ class Service(socketserver.BaseRequestHandler):
     client_limit = 10
 
     def __init__(self, request, client_address, server):
-        self.queue = Queue()
+        self.queue = Queue(maxsize=50000)
         self.queues = server.queues
         self.header = server.header
         self.cfg2 = server.cfg2
@@ -53,6 +54,8 @@ class Service(socketserver.BaseRequestHandler):
     def handle(self):
         print("Client connected with " + str(self.client_address))
 
+        self.request.settimeout(600)
+
         if len(self.queues) < self.client_limit:
             self.queues.append(self.queue)
         else:
@@ -60,13 +63,18 @@ class Service(socketserver.BaseRequestHandler):
             print("Client exited with " + str(self.client_address))
             return
 
-        t = Thread(target = self.send_data, args=[])
+        t = Thread(target = self.send, args=[])
         t.start()
 
         while True:
             try:
                 data = self.request.recv(1024)
                 if len(data) == 0:
+                    break
+            except socket.timeout:
+                if self.sending_measurements_enabled:
+                    continue
+                else:
                     break
             except:
                 break
@@ -83,7 +91,7 @@ class Service(socketserver.BaseRequestHandler):
 
         print("Client exited with " + str(self.client_address))
 
-    def send_data(self):
+    def send(self):
         while self.socket_open:
             send_data = self.queue.get()
             try:
@@ -96,6 +104,9 @@ class Service(socketserver.BaseRequestHandler):
                     send_data = send_data[1]
 
                 self.request.sendall(send_data)
+            except socket.timeout:
+                self.request.shutdown(socket.SHUT_RD)
+                break
             except:
                 continue
             finally:
@@ -121,11 +132,15 @@ class Pmu():
         self.pmu_id = pmu_id
         self.num_pmu = cfg2.num_pmu
         self.data_format = cfg2.data_format
+
         socketserver.TCPServer.allow_reuse_address = True
         server = ThreadedTCPServer((ip, port), Service, queues=self.queues)
         server.header = header
         server.cfg2 = cfg2
-        Thread(target = server.serve_forever, args=[]).start()
+
+        t = Thread(target = server.serve_forever, args=[])
+        t.daemon = True
+        t.start()
 
     def send_data(self, phasors=[], analog=[], digital=[], freq=0, dfreq=0,
                 stat=('ok', True, 'timestamp', False, False, False, 0, '<10', 0),
